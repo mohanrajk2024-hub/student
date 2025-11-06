@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Student Record Management (Linked List)</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f7f9fb; }
+    .card { border-radius:12px; }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <div class="row g-3">
+      <div class="col-md-5">
+        <div class="card p-3 shadow-sm">
+          <h5>Add Student (Singly Linked List)</h5>
+          <form id="studentForm">
+            <div class="mb-2">
+              <label class="form-label">Roll No</label>
+              <input required type="number" id="roll" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Name</label>
+              <input required type="text" id="name" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Subject Name</label>
+              <input required type="text" id="subject" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Marks</label>
+              <input required type="number" step="0.01" id="marks" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Grade</label>
+              <input required type="text" id="grade" class="form-control">
+            </div>
+            <div class="mb-2">
+              <label class="form-label">Parent Phone</label>
+              <input required type="tel" id="phone" class="form-control" placeholder="e.g. +919876543210">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Academic Year</label>
+              <input required type="text" id="year" class="form-control" placeholder="e.g. 2024-2025">
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-primary" type="submit">Add & Send SMS</button>
+              <button id="clearAll" type="button" class="btn btn-outline-danger">Clear All</button>
+            </div>
+          </form>
+
+          <div id="status" class="mt-3" style="display:none"></div>
+
+          <hr>
+          <h6>Linked List Structure (runtime)</h6>
+          <div id="llInfo" class="small text-muted">Head → ... → NULL</div>
+        </div>
+      </div>
+
+      <div class="col-md-7">
+        <div class="card p-3 shadow-sm">
+          <h5>Student Records</h5>
+          <div id="records"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function Node(roll, name, subject, marks, grade, phone, year) {
+  this.roll = roll;
+  this.name = name;
+  this.subject = subject;
+  this.marks = marks;
+  this.grade = grade;
+  this.phone = phone;
+  this.year = year;
+  this.next = null;
+}
+
+let head = null;
+const STORAGE_KEY = 'students_linkedlist_v3';
+
+function saveList() {
+  const arr = [];
+  let cur = head;
+  while (cur) {
+    arr.push({ roll: cur.roll, name: cur.name, subject: cur.subject, marks: cur.marks, grade: cur.grade, phone: cur.phone, year: cur.year });
+    cur = cur.next;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+
+function loadList() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  head = null;
+  if (!raw) return;
+  try {
+    const arr = JSON.parse(raw);
+    for (const s of arr) {
+      appendNode(new Node(s.roll, s.name, s.subject, s.marks, s.grade, s.phone, s.year));
+    }
+  } catch (e) { console.error('Failed to load list', e); }
+}
+
+function appendNode(node) {
+  if (!head) { head = node; return; }
+  let temp = head;
+  while (temp.next) temp = temp.next;
+  temp.next = node;
+}
+
+function addStudent(roll, name, subject, marks, grade, phone, year) {
+  if (findByRoll(roll)) return { ok:false, msg:'Roll already exists' };
+  const node = new Node(roll, name, subject, marks, grade, phone, year);
+  appendNode(node);
+  saveList();
+  render();
+  return { ok:true, node };
+}
+
+function findByRoll(roll) {
+  let cur = head;
+  while (cur) { if (cur.roll === roll) return cur; cur = cur.next; }
+  return null;
+}
+
+function deleteByRoll(roll) {
+  if (!head) return false;
+  if (head.roll === roll) { head = head.next; saveList(); render(); return true; }
+  let prev = head; let cur = head.next;
+  while (cur) {
+    if (cur.roll === roll) { prev.next = cur.next; saveList(); render(); return true; }
+    prev = cur; cur = cur.next;
+  }
+  return false;
+}
+
+function linkedListInfo() {
+  const parts = [];
+  let cur = head; let count=0;
+  while (cur) { parts.push(cur.roll); cur = cur.next; count++; }
+  return { str: (parts.length? 'Head → ' + parts.join(' → ') + ' → NULL' : 'Head → NULL'), count };
+}
+
+function render() {
+  const container = document.getElementById('records');
+  container.innerHTML = '';
+  if (!head) { container.innerHTML = '<div class="text-muted">No records yet.</div>'; document.getElementById('llInfo').textContent = 'Head → NULL'; return; }
+
+  let cur = head;
+  while (cur) {
+    const card = document.createElement('div');
+    card.className = 'card mb-2';
+    card.innerHTML = `
+      <div class="card-body p-2 d-flex justify-content-between align-items-center">
+        <div>
+          <strong>${escapeHtml(cur.name)}</strong> <small class="text-muted">(Roll: ${cur.roll})</small>
+          <div class="small text-muted">Subject: ${escapeHtml(cur.subject)} | Marks: ${cur.marks} | Grade: ${escapeHtml(cur.grade)} | Year: ${escapeHtml(cur.year)}</div>
+          <div class="small">Parent: ${escapeHtml(cur.phone)}</div>
+        </div>
+        <div>
+          <button class="btn btn-sm btn-outline-danger" data-roll="${cur.roll}">Delete</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+    cur = cur.next;
+  }
+
+  container.querySelectorAll('button[data-roll]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const r = parseInt(btn.getAttribute('data-roll'), 10);
+      if (confirm('Delete record with roll ' + r + '?')) {
+        deleteByRoll(r);
+        showStatus('Deleted record ' + r, 'warning');
+      }
+    });
+  });
+
+  const info = linkedListInfo();
+  document.getElementById('llInfo').textContent = info.str + '  (' + info.count + ' nodes)';
+}
+
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function showStatus(msg, type='info') {
+  const el = document.getElementById('status');
+  el.style.display = 'block';
+  el.className = 'alert alert-' + (type==='info'? 'primary' : type);
+  el.textContent = msg;
+  setTimeout(()=>{ el.style.display='none'; }, 3500);
+}
+
+async function sendSmsAPI(phone, message) {
+  try {
+    const res = await fetch('/api/send-sms', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ phone, message })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return { ok:true };
+  } catch (err) {
+    return { ok:false, error: err.message };
+  }
+}
+
+const form = document.getElementById('studentForm');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const roll = parseInt(document.getElementById('roll').value, 10);
+  const name = document.getElementById('name').value.trim();
+  const subject = document.getElementById('subject').value.trim();
+  const marks = parseFloat(document.getElementById('marks').value);
+  const grade = document.getElementById('grade').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const year = document.getElementById('year').value.trim();
+
+  if (!roll || !name || !subject || isNaN(marks) || !grade || !phone || !year) {
+    showStatus('Please fill all fields correctly', 'danger');
+    return;
+  }
+
+  const res = addStudent(roll, name, subject, marks, grade, phone, year);
+  if (!res.ok) { showStatus(res.msg, 'danger'); return; }
+
+  showStatus('Student added — sending SMS...', 'info');
+  const message = `Student Details: Roll No: ${roll}, Name: ${name}, Subject: ${subject}, Marks: ${marks.toFixed(2)}, Grade: ${grade}, Year: ${year}`;
+  const sms = await sendSmsAPI(phone, message);
+  if (sms.ok) showStatus('SMS sent successfully', 'success'); else showStatus('SMS failed: '+sms.error, 'danger');
+
+  form.reset();
+});
+
+document.getElementById('clearAll').addEventListener('click', () => {
+  if (!confirm('Clear all student records from local storage?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  head = null; render(); showStatus('All records cleared', 'warning');
+});
+
+loadList(); render();
+</script>
+</body>
+</html>
